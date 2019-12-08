@@ -1,2 +1,2 @@
 
-#include "protos.h"
+#include "ad2vcf-protos.h"

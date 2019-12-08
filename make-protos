@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+cproto vcfio.c > vcfio-protos.h
+cproto ad2vcf.c > ad2vcf-protos.h

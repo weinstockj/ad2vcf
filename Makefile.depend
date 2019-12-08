@@ -1,3 +1,6 @@
-ad2vcf.o: ad2vcf.c ad2vcf.h protos.h
+ad2vcf.o: ad2vcf.c ad2vcf.h ad2vcf-protos.h
 	${CC} -c ${CFLAGS} ad2vcf.c
+
+vcfio.o: vcfio.c vcfio.h vcfio-protos.h
+	${CC} -c ${CFLAGS} vcfio.c
 
