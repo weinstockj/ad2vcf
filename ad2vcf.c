@@ -42,8 +42,8 @@ void    usage(const char *argv[])
 
 /***************************************************************************
  *  Description:
- *      1. Get list of positions from VCF file
- *      2. Get allele counts for each position from SAM stream
+ *      1. Get list of call positions from VCF file
+ *      2. Get allele counts for each call position from SAM stream
  *
  *  History: 
  *  Date        Name        Modification
@@ -56,11 +56,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     FILE        *vcf_stream;
     extern int  errno;
     char    chromosome[CHROMOSOME_NAME_MAX + 1],
-	    position[POSITION_MAX_DIGITS + 1],
+	    call_pos_str[POSITION_MAX_DIGITS + 1],
 	    ref[REF_NAME_MAX + 1],
 	    alt[ALT_NAME_MAX + 1],
 	    format[FORMAT_MAX + 1],
-	    genotype[GENOTYPE_NAME_MAX + 1];
+	    genotype[GENOTYPE_NAME_MAX + 1],
+	    *end;
+    size_t  call_pos;
     
     if ( (vcf_stream = fopen(argv[1], "r")) == NULL )
     {
@@ -76,8 +78,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     // Chromosome
     while ( read_field(argv, vcf_stream, chromosome, CHROMOSOME_NAME_MAX) )
     {
-	// Position
-	read_field(argv, vcf_stream, position, POSITION_MAX_DIGITS);
+	// Call position
+	read_field(argv, vcf_stream, call_pos_str, POSITION_MAX_DIGITS);
+	call_pos = strtoul(call_pos_str, &end, 10);
+	if ( *end != '\0' )
+	{
+	    fprintf(stderr, "%s: Invalid call position: %s\n",
+		    argv[0], call_pos_str);
+	    exit(EX_DATAERR);
+	}
 	
 	// ID
 	skip_field(argv, vcf_stream);
@@ -105,15 +114,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 #ifdef DEBUG
 	printf("%s %s %s %s %s %s\n",
-	    chromosome, position, ref, alt, format, genotype);
+	    chromosome, call_pos_str, ref, alt, format, genotype);
 #endif
 
 	/*
-	 *  Now search SAM input for matches to chromosome and position.
+	 *  Now search SAM input for matches to chromosome and call position.
 	 *  Both SAM and VCF should be sorted, so it's a game of leapfrog
 	 *  through positions in the two files.
 	 */
-	count_alleles(argv, sam_stream, chromosome, position);
+	count_alleles(argv, sam_stream, chromosome, call_pos);
     }
     
     fclose(vcf_stream);
@@ -123,7 +132,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 /***************************************************************************
  *  Description:
- *      Count alleles in the SAM stream for a given chromosome and position.
+ *      Count alleles in the SAM stream for a given chromosome and call position.
  *
  *  History: 
  *  Date        Name        Modification
@@ -131,25 +140,25 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
  ***************************************************************************/
 
 int     count_alleles(const char *argv[], FILE *sam_stream,
-		      const char chromosome[], const char position[])
+		      const char chromosome[], size_t call_pos)
 
 {
     char    qname[SAM_QNAME_MAX + 1],
 	    rname[SAM_RNAME_MAX + 1],
-	    pos[SAM_POS_MAX + 1],
-	    seq[SAM_SEQ_MAX + 1];
+	    pos_str[SAM_POS_MAX + 1],
+	    seq[SAM_SEQ_MAX + 1],
+	    *end;
+    size_t  seq_len,
+	    pos;
     
     // Skip header lines if present
-    fprintf(stderr, "Skipping header...\n");
-    while ( getc(sam_stream) == '#' )
-	skip_rest_of_line(argv, sam_stream);
-    fprintf(stderr, "Done skipping header...\n");
+    //fprintf(stderr, "Skipping header...\n");
+    //while ( getc(sam_stream) == '#' )
+    //    skip_rest_of_line(argv, sam_stream);
+    //fprintf(stderr, "Done skipping header...\n");
     
     while ( read_field(argv, sam_stream, qname, SAM_QNAME_MAX) )
     {
-	fprintf(stderr, "QNAME = %s\n", qname);
-	skip_rest_of_line(argv, sam_stream);
-	
 	// Flag
 	skip_field(argv, sam_stream);
 	
@@ -157,7 +166,15 @@ int     count_alleles(const char *argv[], FILE *sam_stream,
 	read_field(argv, sam_stream, rname, SAM_RNAME_MAX);
 	
 	// POS
-	read_field(argv, sam_stream, pos, SAM_POS_MAX);
+	read_field(argv, sam_stream, pos_str, SAM_POS_MAX);
+	pos = strtoul(pos_str, &end, 10);
+	if ( *end != '\0' )
+	{
+	    fprintf(stderr, "%s: Invalid alignment position: %s\n",
+		    argv[0], pos_str);
+	    exit(EX_DATAERR);
+	}
+	
 	
 	// MAPQ
 	skip_field(argv, sam_stream);
@@ -175,10 +192,17 @@ int     count_alleles(const char *argv[], FILE *sam_stream,
 	skip_field(argv, sam_stream);
 	
 	// SEQ
-	read_field(argv, sam_stream, seq, SAM_POS_MAX);
+	seq_len = read_field(argv, sam_stream, seq, SAM_POS_MAX);
 	
 	// QUAL
 	skip_field(argv, sam_stream);
+
+	if ( (call_pos >= pos) && (call_pos <= pos + seq_len) )
+	{
+	    fprintf(stderr, "%s %zu %s %zu\n", rname, pos, seq, seq_len);
+	    fprintf(stderr, "Found allele for call pos %zu on %s at %zu.\n",
+		    call_pos, chromosome, pos);
+	}
     }   
     return 0;
 }
