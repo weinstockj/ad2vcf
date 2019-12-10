@@ -53,9 +53,11 @@ void    usage(const char *argv[])
 int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
-    FILE        *vcf_stream;
-    vcf_call_t  vcf_call;
-    extern int  errno;
+    FILE            *vcf_stream;
+    vcf_call_t      vcf_call;
+    sam_alignment_t sam_alignment;
+    extern int      errno;
+    int             more_alignments;
     
     if ( (vcf_stream = fopen(argv[1], "r")) == NULL )
     {
@@ -69,7 +71,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
      */
     
     // Leapfrog positions in SAM and VCF streams
-    while ( vcf_read_call(argv, vcf_stream, &vcf_call) )
+    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
+    if ( ! more_alignments )
+    {
+	fprintf(stderr, "%s: Failed to read first SAM alignment.\n", argv[0]);
+	exit(EX_DATAERR);
+    }
+    while ( more_alignments && vcf_read_call(argv, vcf_stream, &vcf_call) )
     {
 
 	/*
@@ -77,45 +85,25 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	 *  Both SAM and VCF should be sorted, so it's a game of leapfrog
 	 *  through positions in the two files.
 	 */
-	sam_count_alleles(argv, sam_stream, vcf_call.chromosome, vcf_call.call_pos);
+	while ( more_alignments && (sam_alignment.pos <= vcf_call.call_pos) &&
+	       (strcmp(vcf_call.chromosome, sam_alignment.rname) == 0) )
+	{
+	    // fprintf(stderr, "%s %s\n", vcf_call.chromosome, sam_alignment.rname);
+	    if ( vcf_call.call_pos <= sam_alignment.pos + sam_alignment.seq_len )
+	    {
+		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
+			sam_alignment.rname, sam_alignment.pos,
+			sam_alignment.seq_len, sam_alignment.seq);
+		fprintf(stderr, "Found allele %c for call pos %zu on %s aligned seq starting at %zu.\n",
+			sam_alignment.seq[vcf_call.call_pos - sam_alignment.pos],
+			vcf_call.call_pos, vcf_call.chromosome, sam_alignment.pos);
+	    }
+	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
+	}
     }
     
     fclose(vcf_stream);
     return EX_OK;
-}
-
-
-/***************************************************************************
- *  Description:
- *      Count alleles in the SAM stream for a given chromosome and VCF
- *      call position.
- *
- *  History: 
- *  Date        Name        Modification
- *  2019-12-08  Jason Bacon Begin
- ***************************************************************************/
-
-int     sam_count_alleles(const char *argv[], FILE *sam_stream,
-		      const char vcf_chromosome[], size_t call_pos)
-
-{
-    sam_alignment_t sam_alignment;
-    
-    while ( sam_read_alignment(argv, sam_stream, &sam_alignment) )
-    {
-
-	if ( (call_pos >= sam_alignment.pos) &&
-	     (call_pos <= sam_alignment.pos + sam_alignment.seq_len) )
-	{
-	    fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
-		    sam_alignment.rname, sam_alignment.pos,
-		    sam_alignment.seq_len, sam_alignment.seq);
-	    fprintf(stderr, "Found allele %c for call pos %zu on %s aligned seq starting at %zu.\n",
-		    sam_alignment.seq[call_pos - sam_alignment.pos], call_pos,
-		    vcf_chromosome, sam_alignment.pos);
-	}
-    }   
-    return 0;
 }
 
 
