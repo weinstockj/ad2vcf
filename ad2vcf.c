@@ -17,9 +17,9 @@
 #include <sysexits.h>
 #include <string.h>
 #include <stdlib.h>
-#include "ad2vcf.h"
 #include "vcfio.h"
 #include "samio.h"
+#include "ad2vcf.h"
 
 int     main(int argc, const char *argv[])
 
@@ -54,15 +54,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
     FILE        *vcf_stream;
+    vcf_call_t  vcf_call;
     extern int  errno;
-    char    chromosome[CHROMOSOME_NAME_MAX + 1],
-	    call_pos_str[POSITION_MAX_DIGITS + 1],
-	    ref[REF_NAME_MAX + 1],
-	    alt[ALT_NAME_MAX + 1],
-	    format[FORMAT_MAX + 1],
-	    genotype[GENOTYPE_NAME_MAX + 1],
-	    *end;
-    size_t  call_pos;
     
     if ( (vcf_stream = fopen(argv[1], "r")) == NULL )
     {
@@ -76,53 +69,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
      */
     
     // Chromosome
-    while ( read_field(argv, vcf_stream, chromosome, CHROMOSOME_NAME_MAX) )
+    while ( read_vcf_call(argv, vcf_stream, &vcf_call) )
     {
-	// Call position
-	read_field(argv, vcf_stream, call_pos_str, POSITION_MAX_DIGITS);
-	call_pos = strtoul(call_pos_str, &end, 10);
-	if ( *end != '\0' )
-	{
-	    fprintf(stderr, "%s: Invalid call position: %s\n",
-		    argv[0], call_pos_str);
-	    exit(EX_DATAERR);
-	}
-	
-	// ID
-	skip_field(argv, vcf_stream);
-	
-	// Ref
-	read_field(argv, vcf_stream, ref, REF_NAME_MAX);
-	
-	// Alt
-	read_field(argv, vcf_stream, alt, ALT_NAME_MAX);
-
-	// Qual
-	skip_field(argv, vcf_stream);
-	
-	// Filter
-	skip_field(argv, vcf_stream);
-	
-	// Info
-	skip_field(argv, vcf_stream);
-	
-	// Format
-	read_field(argv, vcf_stream, format, FORMAT_MAX);
-
-	// Genotype
-	read_field(argv, vcf_stream, genotype, GENOTYPE_NAME_MAX);
-
-#ifdef DEBUG
-	printf("%s %s %s %s %s %s\n",
-	    chromosome, call_pos_str, ref, alt, format, genotype);
-#endif
 
 	/*
 	 *  Now search SAM input for matches to chromosome and call position.
 	 *  Both SAM and VCF should be sorted, so it's a game of leapfrog
 	 *  through positions in the two files.
 	 */
-	count_alleles(argv, sam_stream, chromosome, call_pos);
+	count_alleles(argv, sam_stream, vcf_call.chromosome, vcf_call.call_pos);
     }
     
     fclose(vcf_stream);
@@ -205,5 +160,73 @@ int     count_alleles(const char *argv[], FILE *sam_stream,
 	}
     }   
     return 0;
+}
+
+
+/***************************************************************************
+ *  Description:
+ *  
+ *  Arguments:
+ *
+ *  Returns:
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2019-12-08  Jason Wayne BaconBegin
+ ***************************************************************************/
+
+int     read_vcf_call(const char *argv[],
+		      FILE *vcf_stream, vcf_call_t *vcf_call)
+
+{
+    char    *end;
+    
+    while ( read_field(argv, vcf_stream, vcf_call->chromosome, CHROMOSOME_NAME_MAX) )
+    {
+	// Call position
+	read_field(argv, vcf_stream, vcf_call->call_pos_str, POSITION_MAX_DIGITS);
+	vcf_call->call_pos = strtoul(vcf_call->call_pos_str, &end, 10);
+	if ( *end != '\0' )
+	{
+	    fprintf(stderr, "%s: Invalid call position: %s\n",
+		    argv[0], vcf_call->call_pos_str);
+	    exit(EX_DATAERR);
+	}
+	
+	// ID
+	skip_field(argv, vcf_stream);
+	
+	// Ref
+	read_field(argv, vcf_stream, vcf_call->ref, REF_NAME_MAX);
+	
+	// Alt
+	read_field(argv, vcf_stream, vcf_call->alt, ALT_NAME_MAX);
+
+	// Qual
+	skip_field(argv, vcf_stream);
+	
+	// Filter
+	skip_field(argv, vcf_stream);
+	
+	// Info
+	skip_field(argv, vcf_stream);
+	
+	// Format
+	read_field(argv, vcf_stream, vcf_call->format, FORMAT_MAX);
+
+	// Genotype
+	read_field(argv, vcf_stream, vcf_call->genotype, GENOTYPE_NAME_MAX);
+
+#ifdef DEBUG
+	printf("%s %s %s %s %s %s\n",
+	    vcf_call->chromosome,
+	    vcf_call->call_pos_str,
+	    vcf_call->ref,
+	    vcf_call->alt,
+	    vcf_call->format,
+	    vcf_call->genotype);
+#endif
+    }
+    return 1;
 }
 
