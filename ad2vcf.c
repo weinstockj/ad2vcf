@@ -72,27 +72,44 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
      *  Read in VCF fields
      */
     
-    // Leapfrog positions in SAM and VCF streams
+    // Prime loop by reading first SAM alignment
     more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
     if ( ! more_alignments )
     {
 	fprintf(stderr, "%s: Failed to read first SAM alignment.\n", argv[0]);
 	exit(EX_DATAERR);
     }
+    
+    // FIXME: Be sure to handle multiple VCF calls with the same position.
+    // Maybe create vcf_read_duplicate_calls() to read in all consecutive
+    // calls with the same position.  Then we can check each SAM alignment
+    // against all ALT alleles.
     while ( more_alignments && vcf_read_call(argv, vcf_stream, &vcf_call) )
     {
-	// Ignore sample data
+	// vcf_read_call() only gets static fields, not sample data
+	// Single-sample inputs should just have one genotype in addition
 	tsv_read_field(argv, vcf_stream, genotype, VCF_GENOTYPE_NAME_MAX);
 	
 	/*
-	 *  Now search SAM input for matches to chromosome and call position.
-	 *  Both SAM and VCF should be sorted, so it's a game of leapfrog
-	 *  through positions in the two files.
+	 *  Now check all SAM alignments for the same chromosome with sequence
+	 *  starting positions <= the VCF call position. Both SAM and VCF
+	 *  should be sorted by chromosome first and then position, so when we
+	 *  encounter a SAM alignment with a different chromosome or a position
+	 *  beyond the VCF position, we're done with this VCF call.
+	 *
+	 *  Do integer position compare before strcmp().  It's less intuitive
+	 *  to check the second sort key first, but faster.
 	 */
 	while ( more_alignments && (sam_alignment.pos <= vcf_call.pos) &&
 	       (strcmp(vcf_call.chromosome, sam_alignment.rname) == 0) )
 	{
-	    // fprintf(stderr, "%s %s\n", vcf_call.chromosome, sam_alignment.rname);
+	    // FIXME: Check all VCF records for the same position.
+	    /*
+	     *  We know at this point that the VCF call position is downstream
+	     *  from the start of the SAM alignment sequence.  Is it also
+	     *  upstream of the end?  If so, record the exact position and
+	     *  allele.
+	     */
 	    if ( vcf_call.pos <= sam_alignment.pos + sam_alignment.seq_len )
 	    {
 		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
