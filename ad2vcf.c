@@ -17,6 +17,7 @@
 #include <sysexits.h>
 #include <string.h>
 #include <stdlib.h>
+#include "tsvio.h"
 #include "vcfio.h"
 #include "samio.h"
 #include "ad2vcf.h"
@@ -126,16 +127,16 @@ int     sam_read_alignment(const char *argv[],
     char    pos_str[SAM_POS_MAX_DIGITS + 1],
 	    *end;
     
-    if ( read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX) )
+    if ( tsv_read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX) )
     {
 	// Flag
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// RNAME
-	read_field(argv, sam_stream, sam_alignment->rname, SAM_RNAME_MAX);
+	tsv_read_field(argv, sam_stream, sam_alignment->rname, SAM_RNAME_MAX);
 	
 	// POS
-	read_field(argv, sam_stream, pos_str, SAM_POS_MAX_DIGITS);
+	tsv_read_field(argv, sam_stream, pos_str, SAM_POS_MAX_DIGITS);
 	sam_alignment->pos = strtoul(pos_str, &end, 10);
 	if ( *end != '\0' )
 	{
@@ -145,25 +146,25 @@ int     sam_read_alignment(const char *argv[],
 	}
 	
 	// MAPQ
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// CIGAR
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// RNEXT
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// PNEXT
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// TLEN
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	
 	// SEQ
-	sam_alignment->seq_len = read_field(argv, sam_stream, sam_alignment->seq, SAM_SEQ_MAX);
+	sam_alignment->seq_len = tsv_read_field(argv, sam_stream, sam_alignment->seq, SAM_SEQ_MAX);
 	
 	// QUAL
-	skip_field(argv, sam_stream);
+	tsv_skip_field(argv, sam_stream);
 	return 1;
     }
     else

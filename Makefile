@@ -49,7 +49,7 @@ BIN     = ad2vcf
 ############################################################################
 # List object files that comprise BIN.
 
-OBJS    = ad2vcf.o vcfio.o
+OBJS    = ad2vcf.o vcfio.o tsvio.o
 
 ############################################################################
 # Compile, link, and install options

@@ -1,6 +1,10 @@
-ad2vcf.o: ad2vcf.c ad2vcf.h ad2vcf-protos.h vcfio.h vcfio-protos.h
+ad2vcf.o: ad2vcf.c vcfio.h vcfio-protos.h samio.h ad2vcf.h \
+  ad2vcf-protos.h
 	${CC} -c ${CFLAGS} ad2vcf.c
 
-vcfio.o: vcfio.c vcfio.h vcfio-protos.h
+tsvio.o: tsvio.c tsvio.h tsvio-protos.h
+	${CC} -c ${CFLAGS} tsvio.c
+
+vcfio.o: vcfio.c tsvio.h tsvio-protos.h vcfio.h vcfio-protos.h
 	${CC} -c ${CFLAGS} vcfio.c
 
