@@ -59,6 +59,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_alignment_t sam_alignment;
     extern int      errno;
     int             more_alignments;
+    char            genotype[VCF_GENOTYPE_NAME_MAX + 1];
     
     if ( (vcf_stream = fopen(argv[1], "r")) == NULL )
     {
@@ -80,24 +81,26 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
     while ( more_alignments && vcf_read_call(argv, vcf_stream, &vcf_call) )
     {
-
+	// Ignore sample data
+	tsv_read_field(argv, vcf_stream, genotype, VCF_GENOTYPE_NAME_MAX);
+	
 	/*
 	 *  Now search SAM input for matches to chromosome and call position.
 	 *  Both SAM and VCF should be sorted, so it's a game of leapfrog
 	 *  through positions in the two files.
 	 */
-	while ( more_alignments && (sam_alignment.pos <= vcf_call.call_pos) &&
+	while ( more_alignments && (sam_alignment.pos <= vcf_call.pos) &&
 	       (strcmp(vcf_call.chromosome, sam_alignment.rname) == 0) )
 	{
 	    // fprintf(stderr, "%s %s\n", vcf_call.chromosome, sam_alignment.rname);
-	    if ( vcf_call.call_pos <= sam_alignment.pos + sam_alignment.seq_len )
+	    if ( vcf_call.pos <= sam_alignment.pos + sam_alignment.seq_len )
 	    {
 		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
 			sam_alignment.rname, sam_alignment.pos,
 			sam_alignment.seq_len, sam_alignment.seq);
 		fprintf(stderr, "Found allele %c for call pos %zu on %s aligned seq starting at %zu.\n",
-			sam_alignment.seq[vcf_call.call_pos - sam_alignment.pos],
-			vcf_call.call_pos, vcf_call.chromosome, sam_alignment.pos);
+			sam_alignment.seq[vcf_call.pos - sam_alignment.pos],
+			vcf_call.pos, vcf_call.chromosome, sam_alignment.pos);
 	    }
 	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
 	}

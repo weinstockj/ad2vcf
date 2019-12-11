@@ -69,7 +69,8 @@ void    vcf_get_sample_ids(const char *argv[], FILE *infile,
 
 /***************************************************************************
  *  Description:
- *      Read one line of a single-entry VCF file
+ *      Read static field from one line of a single-entry VCF file.
+ *      Does not include sample data.
  *
  *  History: 
  *  Date        Name        Modification
@@ -87,12 +88,12 @@ int     vcf_read_call(const char *argv[],
     {
 	strlcpy(vcf_call->chromosome, temp_chromosome, VCF_CHROMOSOME_NAME_MAX);
 	// Call position
-	tsv_read_field(argv, vcf_stream, vcf_call->call_pos_str, VCF_POSITION_MAX_DIGITS);
-	vcf_call->call_pos = strtoul(vcf_call->call_pos_str, &end, 10);
+	tsv_read_field(argv, vcf_stream, vcf_call->pos_str, VCF_POSITION_MAX_DIGITS);
+	vcf_call->pos = strtoul(vcf_call->pos_str, &end, 10);
 	if ( *end != '\0' )
 	{
 	    fprintf(stderr, "%s: Invalid call position: %s\n",
-		    argv[0], vcf_call->call_pos_str);
+		    argv[0], vcf_call->pos_str);
 	    exit(EX_DATAERR);
 	}
 	
@@ -117,17 +118,13 @@ int     vcf_read_call(const char *argv[],
 	// Format
 	tsv_read_field(argv, vcf_stream, vcf_call->format, VCF_FORMAT_MAX);
 
-	// Genotype
-	tsv_read_field(argv, vcf_stream, vcf_call->genotype, VCF_GENOTYPE_NAME_MAX);
-
 #if 0
 	fprintf(stderr, "%s %s %s %s %s %s\n",
 	    vcf_call->chromosome,
-	    vcf_call->call_pos_str,
+	    vcf_call->pos_str,
 	    vcf_call->ref,
 	    vcf_call->alt,
-	    vcf_call->format,
-	    vcf_call->genotype);
+	    vcf_call->format);
 #endif
 	return 1;
     }
