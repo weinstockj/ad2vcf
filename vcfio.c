@@ -58,7 +58,8 @@ void    vcf_get_sample_ids(const char *argv[], FILE *infile,
     for (c = 1; c < first_col; ++c)
 	tsv_skip_field(argv, infile);
     
-    for (; c <= last_col; ++c)
+    for (; (c <= last_col) &&
+	   tsv_read_field(argv, infile, temp_id, VCF_ID_MAX_LEN) != 0; ++c)
     {
 	tsv_read_field(argv, infile, temp_id, VCF_ID_MAX_LEN);
 	sample_ids[c - first_col] = strdup(temp_id);
@@ -146,8 +147,6 @@ int     vcf_read_ss_call(const char *argv[],
 		      FILE *vcf_stream, vcf_call_t *vcf_call)
 
 {
-    int     status;
-    
     if ( vcf_read_call(argv, vcf_stream, vcf_call) &&
 	 tsv_read_field(argv, vcf_stream,
 			vcf_call->genotype, VCF_GENOTYPE_NAME_MAX) )
@@ -202,3 +201,18 @@ size_t  vcf_read_duplicate_calls(const char *argv[], FILE *vcf_stream,
     return vcf_duplicate_calls->count = c;
 }
 
+
+#ifdef __linux__
+size_t  strlcpy(char *dest, const char *src, size_t len)
+
+{
+    char   *save_dest, *end;
+
+    save_dest = dest;
+    end = (char *)src + len - 1;
+    while ((*src != '\0') && (src < end))
+	*dest++ = *src++;
+    *dest = '\0';
+    return dest - save_dest;
+}
+#endif

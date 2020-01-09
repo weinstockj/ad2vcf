@@ -24,4 +24,8 @@ typedef struct
     vcf_call_t  vcf_call[10];   // FIXME: What's the real maximum?
 }   vcf_duplicate_call_t;
 
+#ifdef __linux__
+size_t strlcpy(char *dest, const char *src, size_t len);
+#endif
+
 #include "vcfio-protos.h"

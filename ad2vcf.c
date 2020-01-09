@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <errno.h>
 #include "tsvio.h"
 #include "vcfio.h"
 #include "samio.h"
@@ -59,13 +60,11 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    *allele_stream;
     vcf_duplicate_call_t    vcf_duplicate_calls;
     sam_alignment_t sam_alignment;
-    extern int      errno;
     int             more_alignments,
 		    allele;
     bool            xz = false;
     size_t          vcf_call_pos;
-    char            genotype[VCF_GENOTYPE_NAME_MAX + 1],
-		    cmd[ARG_MAX + 1],
+    char            cmd[CMD_MAX + 1],
 		    *allele_file = "alleles.txt",
 		    *vcf_call_chromosome,
 		    *ext;
@@ -74,7 +73,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
     {
-	snprintf(cmd, ARG_MAX, "unxz -c %s", vcf_filename);
+	snprintf(cmd, CMD_MAX, "unxz -c %s", vcf_filename);
 	vcf_stream = popen(cmd, "r");
     }
     else
