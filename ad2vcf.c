@@ -17,6 +17,8 @@
 #include <sysexits.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <stdbool.h>
 #include "tsvio.h"
 #include "vcfio.h"
 #include "samio.h"
@@ -35,8 +37,7 @@ int     main(int argc, const char *argv[])
 void    usage(const char *argv[])
 
 {
-    fprintf(stderr, "Usage: %s single-sample-VCF-file\n", argv[0]);
-    fputs("SAM stream expected on stdin.\n", stderr);
+    fprintf(stderr, "Usage: %s single-sample.vcf[.xz] < file.sam\n", argv[0]);
     exit(EX_USAGE);
 }
 
@@ -61,18 +62,30 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     extern int      errno;
     int             more_alignments,
 		    allele;
+    bool            xz = false;
     size_t          vcf_call_pos;
     char            genotype[VCF_GENOTYPE_NAME_MAX + 1],
+		    cmd[ARG_MAX + 1],
 		    *allele_file = "alleles.txt",
-		    *vcf_call_chromosome;
+		    *vcf_call_chromosome,
+		    *ext;
+    const char      *vcf_filename = argv[1];
     
-    if ( (vcf_stream = fopen(argv[1], "r")) == NULL )
+    xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
+    if ( xz )
+    {
+	snprintf(cmd, ARG_MAX, "unxz -c %s", vcf_filename);
+	vcf_stream = popen(cmd, "r");
+    }
+    else
+	vcf_stream = fopen(vcf_filename, "r");
+    
+    if ( vcf_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], argv[1],
 	    strerror(errno));
 	exit(EX_NOINPUT);
     }
-    
     
     if ( (allele_stream = fopen(allele_file, "w")) == NULL )
     {
@@ -126,21 +139,22 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	       (strcmp(vcf_call_chromosome, sam_alignment.rname) == 0) )
 	{
 	    // FIXME: Check all VCF records for the same position.
+	    // FIXME: Check both streams for unsorted data
 	    /*
 	     *  We know at this point that the VCF call position is downstream
 	     *  from the start of the SAM alignment sequence.  Is it also
 	     *  upstream of the end?  If so, record the exact position and
 	     *  allele.
 	     */
-	    if ( vcf_call_pos <= sam_alignment.pos + sam_alignment.seq_len )
+	    if ( vcf_call_pos < sam_alignment.pos + sam_alignment.seq_len )
 	    {
 		allele = sam_alignment.seq[vcf_call_pos - sam_alignment.pos];
 #ifdef DEBUG
 		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
 			sam_alignment.rname, sam_alignment.pos,
 			sam_alignment.seq_len, sam_alignment.seq);
-		fprintf(stderr, "Found allele %c for call pos %zu on %s aligned seq starting at %zu.\n",
-			allele, vcf_call.pos, vcf_call_chromosome,
+		fprintf(stderr, "Found allele %c (%d) for call pos %zu on %s aligned seq starting at %zu.\n",
+			allele, allele, vcf_call_pos, vcf_call_chromosome,
 			sam_alignment.pos);
 #endif
 		putc(allele, allele_stream);
@@ -150,7 +164,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	putc('\n', allele_stream);
     }
     
-    fclose(vcf_stream);
+    if ( xz )
+	pclose(vcf_stream);
+    else
+	fclose(vcf_stream);
     return EX_OK;
 }
 
