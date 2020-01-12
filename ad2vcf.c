@@ -64,14 +64,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    allele,
 		    nc;
     bool            xz = false;
-    size_t          vcf_call_pos,
-		    calls_read = 0,
+    size_t          vcf_pos,
+		    vcf_calls_read = 0,
 		    alignments_read = 1,
-		    previous_vcf_call_pos = 0,
+		    previous_vcf_pos = 0,
 		    previous_alignment_pos = 0;
     char            cmd[CMD_MAX + 1],
 		    *allele_file = "alleles.txt",
-		    *vcf_call_chromosome,
+		    *vcf_chromosome,
 		    previous_vcf_chromosome[VCF_CHROMOSOME_NAME_MAX + 1] = "",
 		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
 		    *ext;
@@ -118,22 +118,24 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 					    &vcf_duplicate_calls)) > 0) )
     {
 	// All the same
-	vcf_call_pos = vcf_duplicate_calls.vcf_call[0].pos;
-	vcf_call_chromosome = vcf_duplicate_calls.vcf_call[0].chromosome;
+	vcf_pos = vcf_duplicate_calls.vcf_call[0].pos;
+	vcf_chromosome = vcf_duplicate_calls.vcf_call[0].chromosome;
 	
 	// Combined VCF should be sorted by chromosome, then call position
 	// Technically, this first check is only valid if it's the same
 	// chromosome, but it's astronomically unlikely that an unsorted
 	// VCF input will escape these checks indefinitely.  This way we get
 	// by with just a single integer comparison for most iterations.
-	if ( vcf_call_pos >= previous_vcf_call_pos )
-	    previous_vcf_call_pos = vcf_call_pos;
-	else if ( strcmp(vcf_call_chromosome, previous_vcf_chromosome) != 0 )
+	if ( vcf_pos >= previous_vcf_pos )
+	    previous_vcf_pos = vcf_pos;
+	else if ( strcmp(vcf_chromosome, previous_vcf_chromosome) != 0 )
 	{
+	    printf("Finished chromosome, %zu calls processed.\n",
+		    vcf_calls_read);
 	    // Begin next chromosome, reset pos
-	    strlcpy(previous_vcf_chromosome, vcf_call_chromosome,
+	    strlcpy(previous_vcf_chromosome, vcf_chromosome,
 		    VCF_CHROMOSOME_NAME_MAX);
-	    previous_vcf_call_pos = vcf_call_pos;
+	    previous_vcf_pos = vcf_pos;
 	}
 	else
 	{
@@ -141,15 +143,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    exit(EX_DATAERR);
 	}
 	
-	// fprintf(stderr, "VCF call pos = %zu\n", vcf_call_pos);
-	calls_read += vcf_duplicate_calls.count;
+	// fprintf(stderr, "VCF call pos = %zu\n", vcf_pos);
+	vcf_calls_read += vcf_duplicate_calls.count;
 	if ( vcf_duplicate_calls.count > 1 )
-	    fprintf(stderr, "Read %zu duplicate calls at pos %zu.\n",
-		    vcf_duplicate_calls.count, vcf_call_pos);
+	    fprintf(stderr, "Read %zu duplicate calls at chr %s pos %zu.\n",
+		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
 	
 	// vcf_read_call() only gets static fields, not sample data
 	// Single-sample inputs should just have one genotype in addition
-	fprintf(allele_stream, "%zu ", vcf_call_pos);
+	fprintf(allele_stream, "%s %zu ", vcf_chromosome, vcf_pos);
 	
 	/*
 	 *  Now check all SAM alignments for the same chromosome with sequence
@@ -160,10 +162,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	 *
 	 *  Do integer position compare before strcmp().  It's less intuitive
 	 *  to check the second sort key first, but faster since the strcmp()
-	 *  is unnecessary if the integer comparison is false.
+	 *  is unnecessary when the integer comparison is false.
 	 */
-	while ( more_alignments && (sam_alignment.pos <= vcf_call_pos) &&
-		(strcmp(vcf_call_chromosome, sam_alignment.rname) == 0) )
+	while ( more_alignments && (sam_alignment.pos <= vcf_pos) &&
+		(strcmp(vcf_chromosome, sam_alignment.rname) == 0) )
 	{
 	    // FIXME: Check all VCF records for the same position.
 	    // FIXME: Check both streams for unsorted data
@@ -173,18 +175,18 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	     *  upstream of the end?  If so, record the exact position and
 	     *  allele.
 	     */
-	    if ( vcf_call_pos < sam_alignment.pos + sam_alignment.seq_len )
+	    if ( vcf_pos < sam_alignment.pos + sam_alignment.seq_len )
 	    {
-		allele = sam_alignment.seq[vcf_call_pos - sam_alignment.pos];
+		allele = sam_alignment.seq[vcf_pos - sam_alignment.pos];
 #ifdef DEBUG
 		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
 			sam_alignment.rname, sam_alignment.pos,
 			sam_alignment.seq_len, sam_alignment.seq);
 		fprintf(stderr, "Found allele %c (%d) for call pos %zu on %s aligned seq starting at %zu.\n",
-			allele, allele, vcf_call_pos, vcf_call_chromosome,
+			allele, allele, vcf_pos, vcf_chromosome,
 			sam_alignment.pos);
 		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
-			calls_read, alignments_read);
+			vcf_calls_read, alignments_read);
 #endif
 		putc(allele, allele_stream);
 	    }
@@ -211,14 +213,23 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    }
 	}
 	putc('\n', allele_stream);
+	
+	// Skip remaining alignments after VCF call chromosome changes
+	while ( more_alignments &&
+		(strcmp(vcf_chromosome, sam_alignment.rname) != 0) )
+	{
+	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
+	    ++alignments_read;
+	}
     }
+    
     fprintf(stderr, "Loop terminated with more_alignments = %d, nc = %d\n",
 	    more_alignments, nc);
     fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
 	    sam_alignment.rname, sam_alignment.pos,
 	    sam_alignment.seq_len, sam_alignment.seq);
-    fprintf(stderr, "vcf_call_pos = %zu, vcf_call_chromosome = %s\n",
-	    vcf_call_pos, vcf_call_chromosome);
+    fprintf(stderr, "vcf_pos = %zu, vcf_chromosome = %s\n",
+	    vcf_pos, vcf_chromosome);
     
     if ( xz )
 	pclose(vcf_stream);
