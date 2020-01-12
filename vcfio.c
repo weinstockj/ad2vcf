@@ -70,15 +70,15 @@ void    vcf_get_sample_ids(const char *argv[], FILE *infile,
 
 /***************************************************************************
  *  Description:
- *      Read static field from one line of a single-entry VCF file.
- *      Does not include sample data.
+ *      Read static fields from one line of a single-entry VCF file.
+ *      Does not read sample data.
  *
  *  History: 
  *  Date        Name        Modification
  *  2019-12-08  Jason Bacon Begin
  ***************************************************************************/
 
-int     vcf_read_call(const char *argv[],
+int     vcf_read_static_fields(const char *argv[],
 		      FILE *vcf_stream, vcf_call_t *vcf_call)
 
 {
@@ -147,7 +147,7 @@ int     vcf_read_ss_call(const char *argv[],
 		      FILE *vcf_stream, vcf_call_t *vcf_call)
 
 {
-    if ( vcf_read_call(argv, vcf_stream, vcf_call) &&
+    if ( vcf_read_static_fields(argv, vcf_stream, vcf_call) &&
 	 tsv_read_field(argv, vcf_stream,
 			vcf_call->genotype, VCF_GENOTYPE_NAME_MAX) )
 	return 1;
@@ -191,11 +191,11 @@ size_t  vcf_read_duplicate_calls(const char *argv[], FILE *vcf_stream,
     do
     {
 	vcf_duplicate_calls->vcf_call[c++] = vcf_call;
-    }   while ( (buffered_calls =
-		    vcf_read_ss_call(argv, vcf_stream, &vcf_call)) &&
+	buffered_calls = vcf_read_ss_call(argv, vcf_stream, &vcf_call);
+    }   while ( (buffered_calls == 1) &&
 		(vcf_call.pos == vcf_duplicate_calls->vcf_call[c-1].pos) &&
 		(strcmp(vcf_call.chromosome,
-		vcf_duplicate_calls->vcf_call[c-1].chromosome) == 0) );
+			vcf_duplicate_calls->vcf_call[c-1].chromosome) == 0) );
 
     // Return the number of calls with the same position
     return vcf_duplicate_calls->count = c;
@@ -203,7 +203,7 @@ size_t  vcf_read_duplicate_calls(const char *argv[], FILE *vcf_stream,
 
 
 #ifdef __linux__
-size_t  strlcpy(char *dest, const char *src, size_t len)
+size_t  strlcpy(char * restrict dest, const char * restrictsrc, size_t len)
 
 {
     char   *save_dest, *end;

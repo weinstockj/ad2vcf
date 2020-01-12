@@ -1,5 +1,10 @@
 #!/bin/sh -e
 
+time samtools view -@ 2 --input-fmt-option required_fields=0x208 \
+	../SRR6990379/NWD102903.b38.irc.v1.cram \
+    | ./ad2vcf ../VCF/10-samples/combined.NWD102903.vcf.xz
+exit
+
 for vcf_file in ../VCF/*.vcf; do
     echo $vcf_file
     samtools view -@ 2 --input-fmt-option required_fields=0x208 \
