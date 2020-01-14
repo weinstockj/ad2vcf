@@ -61,9 +61,8 @@ void    vcf_get_sample_ids(const char *argv[], FILE *infile,
     for (; (c <= last_col) &&
 	   tsv_read_field(argv, infile, temp_id, VCF_ID_MAX_LEN) != 0; ++c)
     {
-	tsv_read_field(argv, infile, temp_id, VCF_ID_MAX_LEN);
 	sample_ids[c - first_col] = strdup(temp_id);
-	// printf("'%s'\n", sample_ids[c]);
+	// fprintf(stderr, "'%s'\n", temp_id);
     }
 }
 
