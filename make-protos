@@ -1,5 +1,7 @@
 #!/bin/sh -e
 
-cproto vcfio.c > vcfio-protos.h
-cproto tsvio.c > tsvio-protos.h
-cproto ad2vcf.c > ad2vcf-protos.h
+: ${LOCALBASE:=../local}
+
+for file in *.c; do
+    cproto -I${LOCALBASE}/include $file > ${file%.c}-protos.h
+done

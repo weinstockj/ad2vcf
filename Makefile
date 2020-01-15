@@ -49,14 +49,14 @@ BIN     = ad2vcf
 ############################################################################
 # List object files that comprise BIN.
 
-OBJS    = ad2vcf.o vcfio.o tsvio.o
+OBJS    = ad2vcf.o
 
 ############################################################################
 # Compile, link, and install options
 
 # Where to find local libraries and headers.  For MacPorts, override
 # with LOCALBASE=/opt/local.
-LOCALBASE   ?= /usr/local
+LOCALBASE   ?= ../local
 
 # Install in /usr/local, unless defined by the parent Makefile, the
 # environment, or a command line option such as PREFIX=/opt/local.
@@ -86,11 +86,11 @@ CPP         ?= cpp
 AR          ?= ar
 RANLIB      ?= ranlib
 
-# INCLUDES    += -I${LOCALBASE}/include
+INCLUDES    += -I${LOCALBASE}/include
 CFLAGS      += ${INCLUDES}
 CXXFLAGS    += ${INCLUDES}
 FFLAGS      += ${INCLUDES}
-# LDFLAGS     += -L${LOCALBASE}/lib
+LDFLAGS     += -L${LOCALBASE}/lib -lvcfio
 
 ############################################################################
 # Assume first command in PATH.  Override with full pathnames if necessary.
@@ -156,8 +156,9 @@ realclean: clean
 
 install: all
 	${MKDIR} -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${PREFIX}/man/man1
-	${INSTALL} -s -m 0555 ${BIN} ${DESTDIR}${PREFIX}/bin
-	${INSTALL} -m 0444 ${MAN} ${DESTDIR}${MANPREFIX}/man/man1
+	${INSTALL} ${BIN} ${DESTDIR}${PREFIX}/bin
+
+#        ${INSTALL} -m 0444 ${MAN} ${DESTDIR}${MANPREFIX}/man/man1
 
 ############################################################################
 # Remove all installed files
