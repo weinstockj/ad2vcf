@@ -64,7 +64,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    allele,
 		    nc;
     bool            xz = false;
-    size_t          vcf_pos,
+    size_t          vcf_pos = 0,
 		    vcf_calls_read = 0,
 		    alignments_read = 1,
 		    previous_vcf_pos = 0,
