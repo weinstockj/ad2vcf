@@ -71,7 +71,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    previous_vcf_pos = 0,
 		    previous_alignment_pos = 0;
     char            cmd[CMD_MAX + 1],
-		    *allele_file = "alleles.txt",
+		    allele_filename[PATH_MAX + 1],
 		    *vcf_chromosome,
 		    previous_vcf_chromosome[VCF_CHROMOSOME_NAME_MAX + 1] = "",
 		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
@@ -93,10 +93,20 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    strerror(errno));
 	exit(EX_NOINPUT);
     }
-    
-    if ( (allele_stream = fopen(allele_file, "w")) == NULL )
+
+    if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
     {
-	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], allele_file,
+	fprintf(stderr, "%s: Input filename must contain \".vcf\".\n", argv[0]);
+	exit(EX_DATAERR);
+    }
+    
+    // Insert "-ad" before ".vcf"
+    *ext = '\0';
+    snprintf(allele_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
+    
+    if ( (allele_stream = fopen(allele_filename, "w")) == NULL )
+    {
+	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], allele_filename,
 	    strerror(errno));
 	exit(EX_CANTCREAT);
     }
