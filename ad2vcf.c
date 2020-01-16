@@ -62,7 +62,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_alignment_t sam_alignment;
     int             more_alignments,
 		    allele,
-		    nc;
+		    nc,
+		    c;
     bool            xz = false;
     size_t          vcf_pos = 0,
 		    vcf_calls_read = 0,
@@ -118,8 +119,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 					    &vcf_duplicate_calls)) > 0) )
     {
 	// All the same
-	vcf_pos = vcf_duplicate_calls.vcf_call[0].pos;
-	vcf_chromosome = vcf_duplicate_calls.vcf_call[0].chromosome;
+	vcf_pos = vcf_duplicate_calls.call[0].pos;
+	vcf_chromosome = vcf_duplicate_calls.call[0].chromosome;
 	
 	// Combined VCF should be sorted by chromosome, then call position
 	// Technically, this first check is only valid if it's the same
@@ -149,8 +150,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    fprintf(stderr, "Read %zu duplicate calls at chr %s pos %zu.\n",
 		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
 	
-	// vcf_read_call() only gets static fields, not sample data
-	// Single-sample inputs should just have one genotype in addition
+	// Temporary
 	fprintf(allele_stream, "%s %zu ", vcf_chromosome, vcf_pos);
 	
 	/*
@@ -188,7 +188,18 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
 			vcf_calls_read, alignments_read);
 #endif
+		// Temporary
 		putc(allele, allele_stream);
+		
+		for (c = 0; c < vcf_duplicate_calls.count; ++c)
+		{
+		    if ( allele == *vcf_duplicate_calls.call[c].ref )
+			++vcf_duplicate_calls.call[c].ref_count;
+		    else if ( allele == *vcf_duplicate_calls.call[c].alt )
+			++vcf_duplicate_calls.call[c].alt_count;
+		    else
+			++vcf_duplicate_calls.call[c].other_count;
+		}
 	    }
 	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
 	    ++alignments_read;
@@ -213,6 +224,23 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    }
 	}
 	putc('\n', allele_stream);
+	
+	for (c = 0; c < vcf_duplicate_calls.count; ++c)
+	{
+	    fprintf(allele_stream,
+		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u Other: %u",
+		    vcf_chromosome, vcf_pos,
+		    vcf_duplicate_calls.call[c].ref,
+		    vcf_duplicate_calls.call[c].alt,
+		    vcf_duplicate_calls.call[c].format,
+		    vcf_duplicate_calls.call[c].genotype,
+		    vcf_duplicate_calls.call[c].ref_count,
+		    vcf_duplicate_calls.call[c].alt_count,
+		    vcf_duplicate_calls.call[c].ref_count +
+		    vcf_duplicate_calls.call[c].alt_count,
+		    vcf_duplicate_calls.call[c].other_count);
+	    putc('\n', allele_stream);
+	}
 	
 	// Skip remaining alignments after VCF call chromosome changes
 	while ( more_alignments &&
