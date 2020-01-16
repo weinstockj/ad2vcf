@@ -245,6 +245,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
+	    // Haplohseq expects DP to be sum of AD values (P. Auer)
 	    fprintf(allele_stream,
 		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u",
 		    vcf_chromosome, vcf_pos,
