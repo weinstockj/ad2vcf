@@ -103,8 +103,16 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     // Insert "-ad" before ".vcf"
     *ext = '\0';
     snprintf(allele_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
+
+    if ( xz )
+    {
+	snprintf(cmd, CMD_MAX, "xz -c > %s", allele_filename);
+	allele_stream = popen(cmd, "w");
+    }
+    else
+	allele_stream = fopen(allele_filename, "w");
     
-    if ( (allele_stream = fopen(allele_filename, "w")) == NULL )
+    if ( allele_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], allele_filename,
 	    strerror(errno));
@@ -161,7 +169,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
 	
 	// Temporary
-	fprintf(allele_stream, "%s %zu ", vcf_chromosome, vcf_pos);
+	// fprintf(allele_stream, "%s %zu ", vcf_chromosome, vcf_pos);
 	
 	/*
 	 *  Now check all SAM alignments for the same chromosome with sequence
@@ -199,7 +207,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 			vcf_calls_read, alignments_read);
 #endif
 		// Temporary
-		putc(allele, allele_stream);
+		// putc(allele, allele_stream);
 		
 		for (c = 0; c < vcf_duplicate_calls.count; ++c)
 		{
@@ -238,7 +246,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
 	    fprintf(allele_stream,
-		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u Other: %u",
+		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u",
 		    vcf_chromosome, vcf_pos,
 		    vcf_duplicate_calls.call[c].ref,
 		    vcf_duplicate_calls.call[c].alt,
@@ -247,8 +255,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    vcf_duplicate_calls.call[c].ref_count,
 		    vcf_duplicate_calls.call[c].alt_count,
 		    vcf_duplicate_calls.call[c].ref_count +
-		    vcf_duplicate_calls.call[c].alt_count,
-		    vcf_duplicate_calls.call[c].other_count);
+		    vcf_duplicate_calls.call[c].alt_count);
+		    // vcf_duplicate_calls.call[c].other_count);
 	    putc('\n', allele_stream);
 	}
 	
