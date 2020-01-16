@@ -41,6 +41,6 @@ $LOCALBASE.
 
 Then simple run
 
-...sh
+```sh
 make install
-...
+```
