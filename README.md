@@ -33,6 +33,8 @@ unless using a POSIX environment such as Cygwin or Windows Subsystem for Linux.
 
 Building and installing:
 
+vcf-split depends on [vcfio](https://github.com/auerlab/vcfio).
+
 Set LOCALBASE to the prefix of lib/libvcfio.a.  Default is ../local.
 (See Makefile).
 
