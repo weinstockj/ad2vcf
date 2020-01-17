@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <errno.h>
 #include "tsvio.h"
 #include "vcfio.h"
@@ -62,7 +63,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_alignment_t sam_alignment;
     int             more_alignments,
 		    allele,
-		    nc,
+		    new_calls,
 		    c;
     bool            xz = false;
     size_t          vcf_pos = 0,
@@ -125,48 +126,63 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     
     // Prime loop by reading first SAM alignment
     more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
-    if ( ! more_alignments )
-    {
-	fprintf(stderr, "%s: Failed to read first SAM alignment.\n", argv[0]);
-	exit(EX_DATAERR);
-    }
     
     // Check each SAM alignment against all ALT alleles.
     while ( more_alignments &&
-	    ((nc = vcf_read_duplicate_calls(argv, vcf_stream,
-					    &vcf_duplicate_calls)) > 0) )
+	    (new_calls = vcf_read_duplicate_calls(argv, vcf_stream,
+					 &vcf_duplicate_calls) > 0) )
     {
 	// All the same
 	vcf_pos = vcf_duplicate_calls.call[0].pos;
 	vcf_chromosome = vcf_duplicate_calls.call[0].chromosome;
 	
-	// Combined VCF should be sorted by chromosome, then call position
-	// Technically, this first check is only valid if it's the same
-	// chromosome, but it's astronomically unlikely that an unsorted
-	// VCF input will escape these checks indefinitely.  This way we get
-	// by with just a single integer comparison for most iterations.
-	if ( vcf_pos >= previous_vcf_pos )
-	    previous_vcf_pos = vcf_pos;
-	else if ( strcmp(vcf_chromosome, previous_vcf_chromosome) != 0 )
+	/*
+	 *  VCF input must be sorted by chromosome, then position.
+	 *  If current position < previous and chromosome is the same,
+	 *  then the input is not sorted.
+	 */
+	if ( vcf_pos < previous_vcf_pos )
 	{
-	    printf("Finished chromosome, %zu calls processed.\n",
-		    vcf_calls_read);
-	    // Begin next chromosome, reset pos
-	    strlcpy(previous_vcf_chromosome, vcf_chromosome,
-		    VCF_CHROMOSOME_NAME_MAX);
-	    previous_vcf_pos = vcf_pos;
+	    if ( strcmp(vcf_chromosome, previous_vcf_chromosome) == 0 )
+	    {
+		fprintf(stderr, "%s: VCF input must be sorted first by chromosome then position.\n", argv[0]);
+		exit(EX_DATAERR);
+	    }
+	    else
+	    {
+		fprintf(stderr, "Finished chromosome, %zu calls processed.\n",
+			vcf_calls_read);
+		// Begin next chromosome, reset pos
+		strlcpy(previous_vcf_chromosome, vcf_chromosome,
+			VCF_CHROMOSOME_NAME_MAX);
+		previous_vcf_pos = vcf_pos;
+	    }
 	}
 	else
-	{
-	    fprintf(stderr, "%s: VCF input must be sorted first by chromosome then position.\n", argv[0]);
-	    exit(EX_DATAERR);
-	}
+	    previous_vcf_pos = vcf_pos;
 	
-	// fprintf(stderr, "VCF call pos = %zu\n", vcf_pos);
+	// Debug
+	// fprintf(stderr, "VCF call %s %zu\n", vcf_chromosome, vcf_pos);
 	vcf_calls_read += vcf_duplicate_calls.count;
 	if ( vcf_duplicate_calls.count > 1 )
 	    fprintf(stderr, "Read %zu duplicate calls at chr %s pos %zu.\n",
 		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
+
+	// Skip remaining alignments for previous chromosome after VCF
+	// chromosome changes
+	while ( more_alignments &&
+		(chromosome_name_cmp(sam_alignment.rname, vcf_chromosome) < 0) )
+	{
+	    // Debug
+	    /*
+	    fprintf(stderr, "Skipping %s %zu on the way to VCF %s %zu\n",
+		    sam_alignment.rname, sam_alignment.pos,
+		    vcf_chromosome, vcf_pos);
+	    */
+	    more_alignments =
+		sam_read_alignment(argv, sam_stream, &sam_alignment);
+	    ++alignments_read;
+	}
 	
 	// Debug
 	fprintf(allele_stream, "# %s %zu ", vcf_chromosome, vcf_pos);
@@ -178,15 +194,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	 *  encounter a SAM alignment with a different chromosome or a position
 	 *  beyond the VCF position, we're done with this VCF call.
 	 *
-	 *  Do integer position compare before strcmp().  It's less intuitive
-	 *  to check the second sort key first, but faster since the strcmp()
-	 *  is unnecessary when the integer comparison is false.
+	 *  Do integer position compare before strcmp().  It's
+	 *  less intuitive to check the second sort key first, but faster
+	 *  since the strcmp() is unnecessary when the integer
+	 *  comparison is false.
 	 */
-	while ( more_alignments && (sam_alignment.pos <= vcf_pos) &&
-		(strcmp(vcf_chromosome, sam_alignment.rname) == 0) )
+	while ( more_alignments &&
+		(sam_alignment.pos <= vcf_pos) &&
+		(strcmp(sam_alignment.rname, vcf_chromosome) == 0) )
 	{
-	    // FIXME: Check all VCF records for the same position.
-	    // FIXME: Check both streams for unsorted data
 	    /*
 	     *  We know at this point that the VCF call position is downstream
 	     *  from the start of the SAM alignment sequence.  Is it also
@@ -219,31 +235,41 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 			++vcf_duplicate_calls.call[c].other_count;
 		}
 	    }
+	    
 	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
 	    ++alignments_read;
 	    
-	    // SAM input must be sorted by rname (chromosome), then position
-	    // Technically, this first check is only valid if it's the same
-	    // rname, but it's astronomically unlikely that an unsorted
-	    // SAM input will escape these checks indefinitely.  This way we
-	    // get by with a single integer comparison for most iterations.
-	    if ( sam_alignment.pos >= previous_alignment_pos )
-		previous_alignment_pos = sam_alignment.pos;
-	    else if ( strcmp(sam_alignment.rname, previous_sam_rname) != 0 )
+	    /*
+	     *  SAM input must be sorted by rname (chromosome), then position.
+	     *  If current position < previous and chromosome is the same,
+	     *  then the SAM input is not sorted.
+	     */
+	    if ( sam_alignment.pos < previous_alignment_pos )
 	    {
-		// Begin next chromosome, reset pos
-		strlcpy(previous_sam_rname, sam_alignment.rname, SAM_RNAME_MAX);
-		previous_alignment_pos = sam_alignment.pos;
+		if ( strcmp(sam_alignment.rname, previous_sam_rname) == 0 )
+		{
+		    fprintf(stderr, "%s: SAM input is not sorted.\n", argv[0]);
+		    exit(EX_DATAERR);
+		}
+		else
+		{
+		    // Begin next chromosome, reset pos
+		    strlcpy(previous_sam_rname, sam_alignment.rname, SAM_RNAME_MAX);
+		    previous_alignment_pos = sam_alignment.pos;
+		}
 	    }
 	    else
-	    {
-		fprintf(stderr, "%s: SAM input is not sorted.\n", argv[0]);
-		exit(EX_DATAERR);
-	    }
+		previous_alignment_pos = sam_alignment.pos;
 	}
 	
 	// Debug
 	putc('\n', allele_stream);
+	/*
+	fprintf(stderr, "===\nOut of alignments for VCF %s %zu\n",
+		vcf_chromosome, vcf_pos);
+	fprintf(stderr, "rname = %s pos=%zu\n",
+		sam_alignment.rname, sam_alignment.pos);
+	*/
 	
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
@@ -261,19 +287,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    vcf_duplicate_calls.call[c].alt_count);
 		    // vcf_duplicate_calls.call[c].other_count);
 	}
-	
-	// Skip remaining alignments after VCF call chromosome changes
-	while ( more_alignments &&
-		(strcmp(vcf_chromosome, sam_alignment.rname) != 0) )
-	{
-	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
-	    ++alignments_read;
-	}
     }
     
-    fprintf(stderr, "Loop terminated with more_alignments = %d, nc = %d\n",
-	    more_alignments, nc);
-    fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
+    // Debug
+    fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %d\n",
+	    more_alignments, new_calls);
+    fprintf(stderr, "===\nrname = %s pos=%zu len=%zu %s\n",
 	    sam_alignment.rname, sam_alignment.pos,
 	    sam_alignment.seq_len, sam_alignment.seq);
     fprintf(stderr, "vcf_pos = %zu, vcf_chromosome = %s\n",
@@ -348,4 +367,35 @@ int     sam_read_alignment(const char *argv[],
     }
     else
 	return 0;
+}
+
+
+/*
+ *  Perform a numeric comparison of two chromosome names.
+ *  The names must contain the chromosome number in the first digits present.
+ *  Use this only if you need to know which string is < or >.
+ *  If only checking for equality/inequality, use strcmp().
+ */
+
+int     chromosome_name_cmp(const char *n1, const char *n2)
+
+{
+    const char      *p1, *p2;
+    char            *end;
+    unsigned long   c1, c2;
+    
+    for (p1 = n1; !isdigit(*p1) && (*p1 != '\0'); ++p1)
+	;
+    for (p2 = n2; !isdigit(*p2) && (*p2 != '\0'); ++p2)
+	;
+    
+    if ( (*p1 == '\0') || (*p2 == '\0') )
+    {
+	fprintf(stderr, "Invalid argument: chromosome_name_cmp(%s, %s).\n", n1, n2);
+	exit(EX_DATAERR);
+    }
+    
+    c1 = strtoul(p1, &end, 10);
+    c2 = strtoul(p2, &end, 10);
+    return c1 - c2;
 }
