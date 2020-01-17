@@ -168,8 +168,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    fprintf(stderr, "Read %zu duplicate calls at chr %s pos %zu.\n",
 		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
 	
-	// Temporary
-	// fprintf(allele_stream, "%s %zu ", vcf_chromosome, vcf_pos);
+	// Debug
+	fprintf(allele_stream, "# %s %zu ", vcf_chromosome, vcf_pos);
 	
 	/*
 	 *  Now check all SAM alignments for the same chromosome with sequence
@@ -206,8 +206,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
 			vcf_calls_read, alignments_read);
 #endif
-		// Temporary
-		// putc(allele, allele_stream);
+		// Debug
+		putc(allele, allele_stream);
 		
 		for (c = 0; c < vcf_duplicate_calls.count; ++c)
 		{
@@ -241,13 +241,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		exit(EX_DATAERR);
 	    }
 	}
+	
+	// Debug
 	putc('\n', allele_stream);
 	
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
 	    // Haplohseq expects DP to be sum of AD values (P. Auer)
 	    fprintf(allele_stream,
-		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u",
+		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
 		    vcf_chromosome, vcf_pos,
 		    vcf_duplicate_calls.call[c].ref,
 		    vcf_duplicate_calls.call[c].alt,
@@ -258,7 +260,6 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    vcf_duplicate_calls.call[c].ref_count +
 		    vcf_duplicate_calls.call[c].alt_count);
 		    // vcf_duplicate_calls.call[c].other_count);
-	    putc('\n', allele_stream);
 	}
 	
 	// Skip remaining alignments after VCF call chromosome changes
