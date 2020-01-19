@@ -156,6 +156,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		strlcpy(previous_vcf_chromosome, vcf_chromosome,
 			VCF_CHROMOSOME_NAME_MAX);
 		previous_vcf_pos = vcf_pos;
+		vcf_calls_read = 0;
 	    }
 	}
 	else
