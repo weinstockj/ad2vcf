@@ -74,7 +74,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     char            cmd[CMD_MAX + 1],
 		    allele_filename[PATH_MAX + 1],
 		    *vcf_chromosome,
-		    previous_vcf_chromosome[VCF_CHROMOSOME_NAME_MAX + 1] = "",
+		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
 		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
 		    *ext;
     const char      *vcf_filename = argv[1];
@@ -154,7 +154,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 			vcf_calls_read);
 		// Begin next chromosome, reset pos
 		strlcpy(previous_vcf_chromosome, vcf_chromosome,
-			VCF_CHROMOSOME_NAME_MAX);
+			VCF_CHROMOSOME_MAX_CHARS);
 		previous_vcf_pos = vcf_pos;
 		vcf_calls_read = 0;
 	    }
@@ -274,6 +274,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
+	    // FIXME: Use vcf_write_call()
 	    // Haplohseq expects DP to be sum of AD values (P. Auer)
 	    fprintf(allele_stream,
 		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
@@ -281,7 +282,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    vcf_duplicate_calls.call[c].ref,
 		    vcf_duplicate_calls.call[c].alt,
 		    vcf_duplicate_calls.call[c].format,
-		    vcf_duplicate_calls.call[c].genotype,
+		    vcf_duplicate_calls.call[c].samples[0],
 		    vcf_duplicate_calls.call[c].ref_count,
 		    vcf_duplicate_calls.call[c].alt_count,
 		    vcf_duplicate_calls.call[c].ref_count +
