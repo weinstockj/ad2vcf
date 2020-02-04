@@ -63,7 +63,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_alignment_t sam_alignment;
     int             more_alignments,
 		    allele,
-		    new_calls,
+		    new_calls = 0,
 		    c;
     bool            xz = false;
     size_t          vcf_pos = 0,
