@@ -326,17 +326,18 @@ int     sam_read_alignment(const char *argv[],
 {
     char    pos_str[SAM_POS_MAX_DIGITS + 1],
 	    *end;
+    size_t  len;
     
-    if ( tsv_read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX) )
+    if ( tsv_read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX, &len) != EOF )
     {
 	// Flag
 	tsv_skip_field(argv, sam_stream);
 	
 	// RNAME
-	tsv_read_field(argv, sam_stream, sam_alignment->rname, SAM_RNAME_MAX);
+	tsv_read_field(argv, sam_stream, sam_alignment->rname, SAM_RNAME_MAX, &len);
 	
 	// POS
-	tsv_read_field(argv, sam_stream, pos_str, SAM_POS_MAX_DIGITS);
+	tsv_read_field(argv, sam_stream, pos_str, SAM_POS_MAX_DIGITS, &len);
 	sam_alignment->pos = strtoul(pos_str, &end, 10);
 	if ( *end != '\0' )
 	{
@@ -361,7 +362,8 @@ int     sam_read_alignment(const char *argv[],
 	tsv_skip_field(argv, sam_stream);
 	
 	// SEQ
-	sam_alignment->seq_len = tsv_read_field(argv, sam_stream, sam_alignment->seq, SAM_SEQ_MAX);
+	tsv_read_field(argv, sam_stream, sam_alignment->seq, SAM_SEQ_MAX,
+	    &sam_alignment->seq_len);
 	
 	// QUAL
 	tsv_skip_field(argv, sam_stream);
