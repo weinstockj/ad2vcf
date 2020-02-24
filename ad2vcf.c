@@ -223,9 +223,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 			sam_alignment.pos);
 		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
 			vcf_calls_read, alignments_read);
-#endif
-		// Debug
 		putc(allele, allele_stream);
+#endif
 		
 		for (c = 0; c < vcf_duplicate_calls.count; ++c)
 		{
