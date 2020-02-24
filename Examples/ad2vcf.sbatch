@@ -2,6 +2,7 @@
 
 #SBATCH --array=1-10
 #SBATCH --cpus-per-task=3
+#SBATCH --mem=1g
 ##SBATCH --exclude=compute-[001-008,012]
 
 setenv PATH ../../local/bin:${PATH}

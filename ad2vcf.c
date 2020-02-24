@@ -185,9 +185,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    ++alignments_read;
 	}
 	
-	// Debug
+#ifdef DEBUG
 	fprintf(allele_stream, "# %s %zu ", vcf_chromosome, vcf_pos);
-	
+#endif
+
 	/*
 	 *  Now check all SAM alignments for the same chromosome with sequence
 	 *  starting positions <= the VCF call position. Both SAM and VCF
