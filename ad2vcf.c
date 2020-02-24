@@ -262,8 +262,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    else
 		previous_alignment_pos = sam_alignment.pos;
 	}
-	
-	// Debug
+
+#ifdef DEBUG
 	putc('\n', allele_stream);
 	/*
 	fprintf(stderr, "===\nOut of alignments for VCF %s %zu\n",
@@ -271,6 +271,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	fprintf(stderr, "rname = %s pos=%zu\n",
 		sam_alignment.rname, sam_alignment.pos);
 	*/
+#endif
 	
 	for (c = 0; c < vcf_duplicate_calls.count; ++c)
 	{
