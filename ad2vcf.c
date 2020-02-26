@@ -32,6 +32,7 @@ int     main(int argc, const char *argv[])
     if ( argc != 2 )
 	usage(argv);
     
+    printf("debug 1\n");
     return ad2vcf(argv, stdin);
 }
 
@@ -57,6 +58,7 @@ void    usage(const char *argv[])
 int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
+    printf("debug 2\n");
     FILE            *vcf_stream,
 		    *allele_stream;
     vcf_duplicate_call_t    vcf_duplicate_calls;
@@ -79,6 +81,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    *ext;
     const char      *vcf_filename = argv[1];
     
+    printf("debug 3\n");
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
     {
@@ -88,6 +91,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     else
 	vcf_stream = fopen(vcf_filename, "r");
     
+    printf("debug 4\n");
     if ( vcf_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], argv[1],
@@ -95,6 +99,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_NOINPUT);
     }
 
+    printf("debug 5\n");
     if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
     {
 	fprintf(stderr, "%s: Input filename must contain \".vcf\".\n", argv[0]);
@@ -102,6 +107,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
     
     // Insert "-ad" before ".vcf"
+    printf("debug 6\n");
     *ext = '\0';
     snprintf(allele_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
 
